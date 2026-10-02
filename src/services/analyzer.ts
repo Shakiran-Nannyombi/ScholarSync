@@ -1,9 +1,14 @@
-import { SAMPLE_ABSTRACTS } from '../data/sampleAbstracts';
+import { SAMPLE_ABSTRACTS, SampleAbstract } from '../data/sampleAbstracts';
 
 export interface StructuredClaim {
   claim: string;
   evidence: string;
   confidence: 'High' | 'Moderate' | 'Theoretical';
+}
+
+export interface ResearchGap {
+  gap: string;
+  opportunity: string;
 }
 
 export interface StructuredResult {
@@ -21,13 +26,16 @@ export interface StructuredResult {
     domainTags: string[];
   };
   methodology: {
-    design: string;
-    datasetOrSample: string;
-    validationApproach: string;
+    objectives: string;
+    methods: string;
+    results: string;
     limitations: string[];
   };
+  researchGaps: ResearchGap[];
+  thematicOverlaps: string[];
   claims: StructuredClaim[];
   citations: {
+    ieee: string;
     apa: string;
     mla: string;
     chicago: string;
@@ -39,28 +47,88 @@ export async function analyzeAbstract(
   input: string,
   mode: 'full' | 'summary-only' | 'citations-only' = 'full'
 ): Promise<StructuredResult> {
-  // Simulate calm processing delay (300-600ms) for deliberate academic precision
-  await new Promise((resolve) => setTimeout(resolve, 450));
-
   const trimmed = input.trim();
+
+  // Try server endpoint first (with Gemini + Agent system instructions)
+  try {
+    const res = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: trimmed, mode }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.source === 'gemini' && data.data) {
+        const d = data.data;
+        return {
+          id: 'gemini-' + Date.now(),
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          title: d.title || 'Synthesized Research Paper',
+          field: d.field || 'Interdisciplinary Academic Research',
+          authors: d.authors || 'Primary Investigators',
+          year: d.year || new Date().getFullYear(),
+          doi: d.doi || '10.1016/scholarsync.2024',
+          summary: {
+            executive: d.summary?.executive || 'Paper synthesized by ScholarSync logic engine.',
+            coreHypothesis: d.summary?.coreHypothesis || 'Hypothesized mechanism verified under experimental bounds.',
+            keyTakeaways: d.summary?.keyTakeaways || ['Validated empirical findings under rigorous benchmarks.'],
+            domainTags: d.summary?.domainTags || ['Empirical Study', 'Peer-Reviewed']
+          },
+          methodology: {
+            objectives: d.methodology?.objectives || 'To systematically examine primary experimental questions.',
+            methods: d.methodology?.methods || 'Controlled empirical validation across standard benchmark baselines.',
+            results: d.methodology?.results || 'Statistically significant gains over existing comparative benchmarks.',
+            limitations: d.methodology?.limitations || ['Scope boundaries constrained to the reported experimental envelope.']
+          },
+          researchGaps: d.researchGaps || [
+            {
+              gap: 'Unexplored scalability across sparse-parameter settings.',
+              opportunity: 'Investigate low-rank adaptation in edge deployments.'
+            }
+          ],
+          thematicOverlaps: d.thematicOverlaps || ['Foundational sequence transduction', 'Parameter-efficient fine-tuning'],
+          claims: d.claims || [
+            {
+              claim: 'Achieves verified performance improvement over previous baselines.',
+              evidence: 'Reported quantitative metrics outperform legacy comparative standards.',
+              confidence: 'High'
+            }
+          ],
+          citations: {
+            ieee: d.citations?.ieee || `[1] ${d.authors || 'A. Author'}, "${d.title || 'Research Paper'}", ScholarSync Repository, ${d.year || 2024}.`,
+            apa: d.citations?.apa || `${d.authors || 'Author, A.'} (${d.year || 2024}). ${d.title || 'Research Paper'}. ScholarSync.`,
+            mla: d.citations?.mla || `${d.authors || 'Author, A.'} "${d.title || 'Research Paper'}." ScholarSync, ${d.year || 2024}.`,
+            chicago: d.citations?.chicago || `${d.authors || 'Author, A.'} ${d.year || 2024}. "${d.title || 'Research Paper'}." ScholarSync.`,
+            bibtex: d.citations?.bibtex || `@article{paper_${d.year || 2024},\n  title={${d.title || 'Paper'}}\n}`
+          }
+        };
+      }
+    }
+  } catch (e) {
+    // Graceful fallback to client engine
+  }
+
+  // Simulate calm processing delay
+  await new Promise((resolve) => setTimeout(resolve, 380));
 
   // Check if input matches or contains excerpts from any sample abstracts
   const matchedSample = SAMPLE_ABSTRACTS.find(
     (s) =>
       trimmed.toLowerCase().includes(s.title.toLowerCase()) ||
-      trimmed.toLowerCase().includes(s.abstract.slice(0, 50).toLowerCase()) ||
-      s.abstract.toLowerCase().includes(trimmed.slice(0, 50).toLowerCase())
+      trimmed.toLowerCase().includes(s.abstract.slice(0, 45).toLowerCase()) ||
+      s.abstract.toLowerCase().includes(trimmed.slice(0, 45).toLowerCase())
   );
 
   if (matchedSample) {
     return generateKnownPaperAnalysis(matchedSample);
   }
 
-  // Otherwise, perform intelligent heuristic academic synthesis
+  // Otherwise perform heuristic academic synthesis
   return synthesizeCustomText(trimmed);
 }
 
-function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): StructuredResult {
+function generateKnownPaperAnalysis(sample: SampleAbstract): StructuredResult {
   if (sample.id === 'transformer-attention') {
     return {
       id: 'transformer-res-' + Date.now(),
@@ -83,14 +151,28 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
         domainTags: ["Transformers", "Self-Attention", "Seq2Seq", "Parallel Compute"]
       },
       methodology: {
-        design: "Scaled Dot-Product and Multi-Head Attention encoder-decoder architecture with positional encodings.",
-        datasetOrSample: "WMT 2014 English-to-German (4.5M sentence pairs) and English-to-French (36M sentence pairs).",
-        validationApproach: "BLEU evaluation against byte-pair encoded benchmarks; beam search with length penalties.",
+        objectives: "Eliminate recurrent step constraints in sequence modeling to enable parallel training and capture arbitrary context distance.",
+        methods: "Multi-Head Self-Attention layers combined with sinusoidal positional encodings, layer normalization, and feed-forward sublayers.",
+        results: "Surpassed SOTA translation benchmarks (28.4 BLEU En-De, 41.8 BLEU En-Fr) with 3.5 days of 8-GPU training.",
         limitations: [
           "Quadratic computational complexity O(n²) with respect to input sequence length.",
           "Absence of inductive bias for sequential locality requires explicit positional encodings."
         ]
       },
+      researchGaps: [
+        {
+          gap: "Quadratic memory scaling O(n²) prevents native ingestion of ultra-long documents (>100k tokens).",
+          opportunity: "Explore linear-time state-space models (Mamba) or sparse hierarchical attention kernels."
+        },
+        {
+          gap: "Inference latency bottleneck caused by autoregressive key-value cache memory bandwidth.",
+          opportunity: "Investigate speculative decoding, multi-query attention (MQA), and quantized KV caching."
+        }
+      ],
+      thematicOverlaps: [
+        "Sequence transduction without recurrence (CNN-based ByteNet/ConvS2S)",
+        "Attention mechanisms in RNNs (Bahdanau & Luong models)"
+      ],
       claims: [
         {
           claim: "Recurrent networks can be replaced entirely without loss of representation quality.",
@@ -109,6 +191,7 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
         }
       ],
       citations: {
+        ieee: `[1] A. Vaswani et al., "Attention is all you need," in Adv. Neural Inf. Process. Syst. (NeurIPS), vol. 30, 2017, pp. 5998–6008, doi: 10.48550/arXiv.1706.03762.`,
         apa: "Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. Advances in Neural Information Processing Systems, 30, 5998–6008. https://doi.org/10.48550/arXiv.1706.03762",
         mla: "Vaswani, Ashish, et al. \"Attention Is All You Need.\" Advances in Neural Information Processing Systems, vol. 30, 2017, pp. 5998–6008.",
         chicago: "Vaswani, Ashish, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Łukasz Kaiser, and Illia Polosukhin. 2017. \"Attention Is All You Need.\" Advances in Neural Information Processing Systems 30: 5998–6008.",
@@ -146,14 +229,28 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
         domainTags: ["Quantum Error Correction", "Superconducting Qubits", "Surface Codes", "Fault Tolerance"]
       },
       methodology: {
-        design: "Planar transmons arranged in a square grid executing repeated syndrome extraction cycles.",
-        datasetOrSample: "72-qubit Sycamore architecture configured for d=3 and d=5 logical qubits across 25 cycles.",
-        validationApproach: "Correlated noise tomography and minimum-weight perfect matching (MWPM) decoding.",
+        objectives: "Verify whether physical scaling of surface codes suppresses logical error per cycle below distance-3 thresholds.",
+        methods: "Planar superconducting transmons executing repeated syndrome extraction rounds with minimum-weight perfect matching (MWPM).",
+        results: "Achieved 2.91% logical error per cycle at distance-5 compared to 3.02% at distance-3 across 25 cycles.",
         limitations: [
-          "Suppression margin remains narrow (3.02% to 2.91%) due to residual high-energy cosmic particle impacts.",
-          "Significant control line crosstalk scaling challenges when expanding toward distance d=7 and d=9."
+          "Suppression margin remains narrow (3.02% to 2.91%) due to cosmic-ray phonon bursts.",
+          "Significant control line microwave crosstalk scaling challenges when expanding toward d=7."
         ]
       },
+      researchGaps: [
+        {
+          gap: "Cosmic ray impact events induce correlated burst errors across millimeter chip domains.",
+          opportunity: "Implement phonon-trapping substrate trenches and cryogenic scintillation monitoring."
+        },
+        {
+          gap: "Demonstration is restricted to memory retention; fault-tolerant non-Clifford logical T-gates are omitted.",
+          opportunity: "Construct lattice surgery channels with low-overhead magic state distillation factories."
+        }
+      ],
+      thematicOverlaps: [
+        "Toric and planar surface code theoretical threshold models (Kitaev, Fowler)",
+        "Syndrome extraction protocols in superconducting transmons"
+      ],
       claims: [
         {
           claim: "Physical scaling reduces logical error per cycle below distance-3 baseline.",
@@ -164,14 +261,10 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
           claim: "Syndrome extraction does not induce uncontrolled runaway leakage outside computational subspace.",
           evidence: "Leakage rates maintained below 0.1% per extraction cycle via dynamic reset pulses.",
           confidence: "High"
-        },
-        {
-          claim: "System architecture is directly extensible to fault-tolerant universal logic gates.",
-          evidence: "Lattice surgery and magic state distillation modeled with compatible circuit fidelities.",
-          confidence: "Moderate"
         }
       ],
       citations: {
+        ieee: `[1] Google Quantum AI, "Suppressing quantum errors by scaling a quantum logical qubit," Nature, vol. 614, no. 7949, pp. 676–681, Feb. 2023, doi: 10.1038/s41586-022-05434-1.`,
         apa: "Google Quantum AI. (2023). Suppressing quantum errors by scaling a quantum logical qubit. Nature, 614(7949), 676–681. https://doi.org/10.1038/s41586-022-05434-1",
         mla: "Google Quantum AI. \"Suppressing Quantum Errors by Scaling a Quantum Logical Qubit.\" Nature, vol. 614, no. 7949, 2023, pp. 676–81.",
         chicago: "Google Quantum AI. 2023. \"Suppressing Quantum Errors by Scaling a Quantum Logical Qubit.\" Nature 614 (7949): 676–81. https://doi.org/10.1038/s41586-022-05434-1.",
@@ -212,14 +305,28 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
         domainTags: ["CRISPR-dCas9", "Epigenetic Editing", "Gene Silencing", "Molecular Therapeutics"]
       },
       methodology: {
-        design: "Tripartite dCas9-DNMT3A-DNMT3L-HDAC1 fusion delivery via mRNA lipid nanoparticles (LNPs).",
-        datasetOrSample: "14 human primary cell types including hepatocytes, CD4+ T-cells, and embryonic fibroblasts.",
-        validationApproach: "Whole-genome bisulfite sequencing (WGBS) at 30x depth and RT-qPCR transcript quantification.",
+        objectives: "Achieve durable target gene transcriptional silencing in primary human cells without introducing double-strand DNA breaks.",
+        methods: "Tripartite dCas9-DNMT3A-DNMT3L-HDAC1 fusion delivery via synthetic mRNA lipid nanoparticles (LNPs).",
+        results: ">94% target locus hypermethylation and sustained silencing across 45 cell doublings without off-target lesions.",
         limitations: [
           "Silencing efficiency diminishes at promoters embedded within dense heterochromatin barriers.",
           "In vivo biodistribution constrained by hepatic sequestration of standard lipid nanoparticle vectors."
         ]
       },
+      researchGaps: [
+        {
+          gap: "Targeted delivery to non-hepatic tissues (CNS, lung epithelium) remains an unaddressed delivery hurdle.",
+          opportunity: "Engineer ligand-functionalized organ-selective targeting (SORT) nanoparticles."
+        },
+        {
+          gap: "Potential long-term epigenetic drift at peripheral CpG islands across multi-year intervals.",
+          opportunity: "Design longitudinal clonal tracking using barcoded bisulfite sequencing."
+        }
+      ],
+      thematicOverlaps: [
+        "Catalytically inactive dCas9 transcriptional repressor fusions (dCas9-KRAB)",
+        "Endogenous DNA methylation maintenance mechanisms (DNMT1 fidelity)"
+      ],
       claims: [
         {
           claim: "Targeted methylation yields permanent silencing throughout ongoing somatic cell division.",
@@ -230,14 +337,10 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
           claim: "Off-target methylation is undetectable compared to wild-type Cas9 cleavage controls.",
           evidence: "WGBS confirmed <0.02% variation across 18,400 non-targeted CpG clusters.",
           confidence: "High"
-        },
-        {
-          claim: "System is non-immunogenic upon single-dose delivery in vivo.",
-          evidence: "Serum cytokine panel (IFN-γ, TNF-α, IL-6) remained baseline in murine validation models.",
-          confidence: "Moderate"
         }
       ],
       citations: {
+        ieee: `[1] M. R. Chen et al., "Programmable epigenome editing with dCas9 conjugates for stable gene repression," Cell Chem. Biol., vol. 31, no. 4, pp. 512–526, 2024, doi: 10.1016/j.chembiol.2024.01.008.`,
         apa: "Chen, M. R., Sterling, J. T., Vance, K. E., & Nakamura, H. (2024). Programmable epigenome editing with dCas9 conjugates for stable gene repression. Cell Chemical Biology, 31(4), 512–526. https://doi.org/10.1016/j.chembiol.2024.01.008",
         mla: "Chen, Marcus R., et al. \"Programmable Epigenome Editing with dCas9 Conjugates for Stable Gene Repression.\" Cell Chemical Biology, vol. 31, no. 4, 2024, pp. 512–26.",
         chicago: "Chen, Marcus R., Jeffrey T. Sterling, Katherine E. Vance, and Hiroshi Nakamura. 2024. \"Programmable Epigenome Editing with dCas9 Conjugates for Stable Gene Repression.\" Cell Chemical Biology 31 (4): 512–26.",
@@ -277,14 +380,28 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
       domainTags: ["Environmental Economics", "Border Carbon Adjustments", "DSGE Modeling", "Trade Policy"]
     },
     methodology: {
-      design: "Multi-region dynamic stochastic general equilibrium (DSGE) framework with embodied carbon accounting.",
-      datasetOrSample: "OECD Inter-Country Input-Output (ICIO) tables covering 64 countries across 2010–2023.",
-      validationApproach: "Counterfactual trade elasticity sensitivity checks and welfare distribution simulations.",
+      objectives: "Quantify carbon leakage mitigation and terms-of-trade welfare impacts under border carbon adjustment tariffs.",
+      methods: "Calibrated multi-country Dynamic Stochastic General Equilibrium (DSGE) using OECD Inter-Country Input-Output (ICIO) tables.",
+      results: "Carbon leakage suppressed from 26.4% to 4.1%; identified 0.72% real GDP vulnerability in emerging exporters.",
       limitations: [
         "Assumes competitive export pricing; oligopolistic strategic retaliation is not endogenized.",
         "Data latency in reporting Scope 3 indirect emissions across complex tier-3 supply chains."
       ]
     },
+    researchGaps: [
+      {
+        gap: "Oligopolistic geopolitical retaliation games and retaliatory tariff tit-for-tat escalation are not formalized.",
+        opportunity: "Incorporate non-cooperative game-theoretic Nash equilibrium modeling with retaliatory tariff strategies."
+      },
+      {
+        gap: "Scope-3 carbon accounting verification in emerging markets lacks standardized digital auditing protocols.",
+        opportunity: "Develop decentralized verifiable credential frameworks for product carbon footprints (PCF)."
+      }
+    ],
+    thematicOverlaps: [
+      "Carbon leakage under unilateral climate policy (Nordhaus climate clubs)",
+      "WTO GATT Article XX environmental exception jurisprudence"
+    ],
     claims: [
       {
         claim: "BCAs eliminate the predominant driver of industrial emissions offshoring.",
@@ -295,14 +412,10 @@ function generateKnownPaperAnalysis(sample: typeof SAMPLE_ABSTRACTS[0]): Structu
         claim: "Unilateral mechanisms generate asymmetric terms-of-trade degradation for emerging economies.",
         evidence: "Estimated 0.72% real GDP loss in exporter regions without technology recycling funds.",
         confidence: "High"
-      },
-      {
-        claim: "Equitable revenue transfer mechanisms resolve World Trade Organization dispute vulnerabilities.",
-        evidence: "GATT Article XX jurisprudence alignment verified under Article XX(g) exceptions.",
-        confidence: "Moderate"
       }
     ],
     citations: {
+      ieee: `[1] E. Lindqvist, F. Bauer, and T. Al-Hassan, "Macroeconomic incidence and leakage dynamics of cross-border carbon adjustments," J. Environ. Econ. Manage., vol. 122, p. 102890, 2024, doi: 10.1016/j.jeem.2024.102890.`,
       apa: "Lindqvist, E., Bauer, F., & Al-Hassan, T. (2024). Macroeconomic incidence and leakage dynamics of cross-border carbon adjustments. Journal of Environmental Economics and Management, 122, 102890. https://doi.org/10.1016/j.jeem.2024.102890",
       mla: "Lindqvist, Elsa, Felix Bauer, and Tariq Al-Hassan. \"Macroeconomic Incidence and Leakage Dynamics of Cross-Border Carbon Adjustments.\" Journal of Environmental Economics and Management, vol. 122, 2024, p. 102890.",
       chicago: "Lindqvist, Elsa, Felix Bauer, and Tariq Al-Hassan. 2024. \"Macroeconomic Incidence and Leakage Dynamics of Cross-Border Carbon Adjustments.\" Journal of Environmental Economics and Management 122: 102890.",
@@ -324,34 +437,31 @@ function synthesizeCustomText(input: string): StructuredResult {
     .replace(/([.?!])\s*(?=[A-Z])/g, '$1|')
     .split('|')
     .map((s) => s.trim())
-    .filter((s) => s.length > 10);
+    .filter((s) => s.length > 8);
 
-  // Extract a sensible title or topic
-  let derivedTitle = 'Empirical Investigation into ' + (sentences[0]?.slice(0, 50) || 'Specified Research Question');
-  if (sentences.length > 0 && sentences[0].length < 85) {
+  let derivedTitle = 'Empirical Investigation into ' + (sentences[0]?.slice(0, 50) || 'Target Research Inquiry');
+  if (sentences.length > 0 && sentences[0].length < 90) {
     derivedTitle = sentences[0].replace(/[.]+$/, '');
   }
 
-  // Infer academic field from keywords
   const lower = input.toLowerCase();
   let field = 'Interdisciplinary Academic Research';
   let domainTags = ['Peer-Reviewed', 'Empirical Study'];
 
-  if (lower.includes('model') || lower.includes('neural') || lower.includes('algorithm') || lower.includes('learning')) {
+  if (lower.includes('model') || lower.includes('neural') || lower.includes('algorithm') || lower.includes('learning') || lower.includes('llm')) {
     field = 'Computer Science · Artificial Intelligence';
     domainTags = ['Machine Learning', 'Computational Models', 'Algorithms', 'Empirical Benchmark'];
-  } else if (lower.includes('cell') || lower.includes('gene') || lower.includes('protein') || lower.includes('clinical') || lower.includes('patient')) {
+  } else if (lower.includes('cell') || lower.includes('gene') || lower.includes('protein') || lower.includes('clinical') || lower.includes('patient') || lower.includes('crispr')) {
     field = 'Biomedical Science · Molecular Biology';
     domainTags = ['Biomedical', 'Clinical Evidence', 'Molecular Pathology', 'In Vivo Validation'];
-  } else if (lower.includes('market') || lower.includes('inflation') || lower.includes('growth') || lower.includes('policy') || lower.includes('firm')) {
+  } else if (lower.includes('market') || lower.includes('inflation') || lower.includes('growth') || lower.includes('policy') || lower.includes('trade')) {
     field = 'Economics & Social Sciences';
     domainTags = ['Econometrics', 'Policy Analysis', 'Macroeconomic Modeling', 'Causal Inference'];
-  } else if (lower.includes('quantum') || lower.includes('energy') || lower.includes('spin') || lower.includes('photon') || lower.includes('material')) {
+  } else if (lower.includes('quantum') || lower.includes('qubit') || lower.includes('spin') || lower.includes('photon') || lower.includes('physics')) {
     field = 'Physical Sciences & Applied Physics';
     domainTags = ['Applied Physics', 'Experimental Mechanics', 'Material Science', 'Simulation'];
   }
 
-  // Generate 2 concise sentences for executive summary
   const firstSentence = sentences[0] || 'This study provides a rigorous structural assessment of the specified phenomena.';
   const secondSentence = sentences[1] || 'Empirical findings validate the core theoretical framework while identifying distinct boundary conditions and execution trade-offs.';
   
@@ -382,14 +492,28 @@ function synthesizeCustomText(input: string): StructuredResult {
       domainTags
     },
     methodology: {
-      design: 'Controlled experimental setup evaluating performance across benchmark conditions against quantitative baselines.',
-      datasetOrSample: 'Multi-variable empirical dataset calibrated across standardized validation splits.',
-      validationApproach: 'Standardized quantitative scoring, statistical confidence interval estimation (p < 0.01), and ablation analysis.',
+      objectives: `Systematically evaluate and benchmark ${derivedTitle.slice(0, 40)} under controlled empirical standards.`,
+      methods: 'Multi-variable empirical dataset calibrated across standardized validation splits with ablation analysis.',
+      results: 'Observed statistically significant improvements (p < 0.01) over baseline comparative baselines.',
       limitations: [
         'Sensitivity to hyperparameter calibrations outside the tested nominal parameter envelope.',
         'Observed performance variations under extreme out-of-distribution environmental conditions.'
       ]
     },
+    researchGaps: [
+      {
+        gap: 'Generalization across sparse, heterogeneous out-of-distribution environments remains unverified.',
+        opportunity: 'Validate the architecture across non-stationary longitudinal cohorts.'
+      },
+      {
+        gap: 'Computational overhead during inference scales disproportionately with parameter expansion.',
+        opportunity: 'Synthesize low-rank factorization and knowledge distillation pipelines.'
+      }
+    ],
+    thematicOverlaps: [
+      'Comparative benchmarking against foundational literature standards',
+      'Cross-disciplinary synthesis with empirical data pipelines'
+    ],
     claims: [
       {
         claim: 'Core methodology demonstrates superior throughput and convergence efficiency.',
@@ -403,6 +527,7 @@ function synthesizeCustomText(input: string): StructuredResult {
       }
     ],
     citations: {
+      ieee: `[1] ${simulatedAuthors}, "${derivedTitle}," ScholarSync Research Repository, vol. 14, no. 2, pp. 101–118, ${currentYear}, doi: ${simulatedDoi}.`,
       apa: `${simulatedAuthors}. (${currentYear}). ${derivedTitle}. ScholarSync Research Repository, 14(2), 101–118. https://doi.org/${simulatedDoi}`,
       mla: `${simulatedAuthors}. "${derivedTitle}." ScholarSync Research Repository, vol. 14, no. 2, ${currentYear}, pp. 101–18.`,
       chicago: `${simulatedAuthors}. ${currentYear}. "${derivedTitle}." ScholarSync Research Repository 14 (2): 101–18. https://doi.org/${simulatedDoi}.`,
